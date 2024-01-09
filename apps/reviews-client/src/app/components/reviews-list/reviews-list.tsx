@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Alert from '@mui/material/Alert';
-import { Typography, Pagination, CircularProgress } from '@mui/material';
+import { Typography, Pagination, CircularProgress, Box } from '@mui/material';
 import TaskIcon from '@mui/icons-material/Task';
-import ReviewDisplay from '../review-display/review-display';
+import ReviewItem from '../review-display/review-item';
 
-interface Review {
+export interface Review {
 	id: number;
 	reviewText: string;
 	rating: number;
@@ -19,41 +19,55 @@ interface Review {
 }
 
 export interface ReviewsListProps {
-	reviews: Review[];
-	totalReviews: number;
 	page: number;
 	limit: number;
 	setPage: (page: number) => void;
-	fetchReviews: (page: number) => void;
 }
 
-export function ReviewsList({
-	reviews,
-	totalReviews,
-	page,
-	limit,
-	setPage,
-	fetchReviews,
-}: ReviewsListProps) {
-	const [isLoading, setIsLoading] = useState(false);
+export function ReviewsList({ page, limit, setPage }: ReviewsListProps) {
+	const [reviews, setReviews] = useState<Review[]>([]);
+	const [totalReviews, setTotalReviews] = useState<number>(0);
+	const [isLoading, setIsLoading] = useState<boolean>(true);
 
+	const fetchReviews = useCallback(
+		(page: number) => {
+			setIsLoading(true);
+			Promise.all([
+				fetch(`/api/reviews?page=${page}&limit=${limit}`)
+					.then((response) => response.json())
+					.then((data) => {
+						setReviews(data.reviews);
+					}),
+				fetch('/api/reviews/count')
+					.then((response) => response.json())
+					.then((count) => {
+						setTotalReviews(count.reviewsCount);
+					}),
+			])
+				.catch((error) => {
+					console.error('Error:', error);
+				})
+				.finally(() => {
+					setIsLoading(false);
+				});
+		},
+		[limit],
+	);
+
+	useEffect(() => {
+		fetchReviews(page);
+	}, [page, fetchReviews]);
+
+	/* Allows the loading screen to show while the reviews are fetched.
+	Stores current page in case of refresh or similar event. */
 	const pageChange = (event: React.ChangeEvent<unknown>, newPage: number) => {
 		setIsLoading(true);
 		sessionStorage.setItem('page', newPage.toString());
 		setPage(newPage);
 		fetchReviews(newPage);
+		// moves the user to the top of the page when a page is loaded.
+		window.scrollTo(0, 0);
 	};
-
-	useEffect(() => {
-		setIsLoading(true);
-		fetchReviews(page);
-	}, [page, fetchReviews]);
-
-	useEffect(() => {
-		if (reviews.length > 0) {
-			setIsLoading(false);
-		}
-	}, [reviews]);
 
 	if (isLoading) {
 		return (
@@ -76,7 +90,7 @@ export function ReviewsList({
 
 	if (!reviews || reviews.length === 0) {
 		return (
-			<Alert severity="error" icon={<TaskIcon />}>
+			<Alert data-testid="no-reviews" severity="error" icon={<TaskIcon />}>
 				No reviews available
 			</Alert>
 		);
@@ -85,20 +99,24 @@ export function ReviewsList({
 	return (
 		<div>
 			<Pagination
-				count={Math.ceil(totalReviews / limit)}
-				defaultPage={page}
+				data-testid="pagination"
+				count={Math.ceil(Number(totalReviews) / Number(limit))}
 				page={page}
-				siblingCount={0}
-				boundaryCount={2}
+				siblingCount={2}
+				boundaryCount={1}
 				onChange={pageChange}
 			/>
-			<ReviewDisplay reviews={reviews} />
+			<Box sx={{ mt: 2 }}>
+				{reviews.map((review: Review) => (
+					<ReviewItem key={review.id} review={review} />
+				))}
+			</Box>
 			<Pagination
+				data-testid="pagination"
 				count={Math.ceil(totalReviews / limit)}
-				defaultPage={page}
 				page={page}
-				siblingCount={0}
-				boundaryCount={2}
+				siblingCount={2}
+				boundaryCount={1}
 				onChange={pageChange}
 			/>
 		</div>

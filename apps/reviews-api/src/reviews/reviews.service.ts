@@ -9,6 +9,7 @@ export class ReviewsService {
 		return this.prisma.review.count();
 	}
 
+	// gets only the reviews that will show on the current page
 	getReviews(page: number, limit: number) {
 		const reviews = this.prisma.review.findMany({
 			skip: (page - 1) * limit,

@@ -31,7 +31,7 @@ describe('ReviewsController', () => {
 				data: { id: user1Id, email: 'user1@example.com' },
 			}),
 			prisma.user.create({
-				data: { id: user2Id, email: 'user2@example.com' },
+				data: { id: user2Id, firstName: 'Adam', lastName: 'Smith', email: 'user2@example.com' },
 			}),
 			prisma.company.create({
 				data: { id: company1Id, name: 'Test Company' },
@@ -81,14 +81,61 @@ describe('ReviewsController', () => {
 	});
 
 	describe('getReviews()', () => {
-		it.todo('should fetch all reviews');
+		it('should fetch all reviews', async () => {
+			const response = await request(app.getHttpServer()).get('/reviews?page=1&limit=10');
+			expect(response.status).toBe(200);
+			expect(response.body.reviews.length).toBe(3);
+		});
 
-		it.todo('should fetch reviews in descending order by date');
+		it('should fetch reviews in descending order by date', async () => {
+			const response = await request(app.getHttpServer()).get('/reviews?page=1&limit=10');
+			const dateIndexZero = new Date(response.body.reviews[0].createdOn);
+			const dateIndexOne = new Date(response.body.reviews[1].createdOn);
+			const dateIndexTwo = new Date(response.body.reviews[2].createdOn);
 
-		it.todo('should include user data with review');
+			expect(response.status).toBe(200);
+			expect(response.body.reviews).toBeDefined();
+			expect(response.body.reviews[0].id).toBe('3');
+			expect(response.body.reviews[1].id).toBe('2');
+			expect(response.body.reviews[2].id).toBe('1');
+			// expect the dates to be in descending order
+			expect(dateIndexZero > dateIndexOne).toBe(true);
+			expect(dateIndexOne > dateIndexTwo).toBe(true);
+		});
 
-		it.todo('should include company data with review');
+		it('should include user data with review', async () => {
+			const response = await request(app.getHttpServer()).get('/reviews?page=1&limit=10');
+			expect(response.status).toBe(200);
+			expect(response.body.reviews[0].user).toBeDefined();
+			expect(response.body.reviews[0].user.id).toBe(user2Id);
+			expect(response.body.reviews[0].user.firstName).toBe('Adam');
+			expect(response.body.reviews[0].user.lastName).toBe('Smith');
+			expect(response.body.reviews[0].user.email).toBe('user2@example.com');
+		});
 
-		// Feel free to add any additional tests you think are necessary
+		it('should include company data with review', async () => {
+			const response = await request(app.getHttpServer()).get('/reviews?page=1&limit=10');
+			expect(response.status).toBe(200);
+			expect(response.body.reviews[0].company).toBeDefined();
+			expect(response.body.reviews[0].company.id).toBe(company1Id);
+			expect(response.body.reviews[0].company.name).toBe('Test Company');
+		});
+
+		it('should return a 400 response when limit < 1', async () => {
+			const response = await request(app.getHttpServer()).get('/reviews?page=1&limit=0');
+			expect(response.status).toBe(400);
+			expect(response.body.message).toBe('Invalid limit value: 0');
+			expect(response.body.reviews).toBeUndefined();
+		});
+
+		it('should return a 400 response when page < 1', async () => {
+			const response = await request(app.getHttpServer()).get('/reviews?page=0&limit=10');
+			expect(response.status).toBe(400);
+			expect(response.body.message).toBe('Invalid page number: 0');
+			expect(response.body.reviews).toBeUndefined();
+		});
+
+		/* I haven't yet figured out a clean way to test the try/catch block without changing the ReviewsController
+			code to allow the test to throw an error, but that test will go here once I have a better idea of how to do it */
 	});
 });
